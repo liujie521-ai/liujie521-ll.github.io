@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>lulu-圣诞快乐</title>
+    <title>露露圣诞快乐</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -10,36 +10,60 @@
             display: flex; align-items: center; justify-content: center;
             background: #161616; color: #c5a880; font-family: sans-serif;
         }
-        #overlay { text-align: center; }
-        .btn, label {
-            background: #161616; border: 1px solid #c5a880;
-            border-radius: 10px; color: #c5a880; padding: 16px;
-            width: 300px; margin: 8px 0; cursor: pointer;
-            display: inline-block; font-size: 14px;
-        }
-        .separator {
-            font-weight: bold; margin: 16px 0; color: #a07676;
+        #overlay {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
         }
         .title {
             color: #a07676; font-weight: bold;
-            font-size: 1.5rem; margin-bottom: 20px;
+            font-size: 1.8rem; margin-bottom: 10px;
         }
-        .text-loading { font-size: 1.5rem; color: #fff; }
+        .btn {
+            background: #161616; border: 2px solid #c5a880;
+            border-radius: 10px; color: #c5a880; padding: 16px 32px;
+            cursor: pointer; font-size: 16px; font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #c5a880; color: #161616;
+            transform: scale(1.05);
+        }
+        .text-loading {
+            font-size: 1.5rem; color: #fff;
+            animation: pulse 1.5s infinite;
+        }
+        .error {
+            color: #ff6b6b; font-size: 1rem; max-width: 400px; padding: 10px;
+        }
+
+        /* 修改祝福样式 - 字体变大 */
+        .blessing {
+            font-size: 2rem; /* 从 1.25rem 增大到 2rem */
+            color: #ffd9b5;
+            min-height: 30px;
+            line-height: 30px;
+            transition: opacity 0.35s;
+            opacity: 1;
+            user-select: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
     </style>
 </head>
 <body>
     <div id="overlay">
-        <div class="title">🎄 请选择圣诞音乐</div>
-        <button class="btn" id="btnA">❄️ 雪花飘落 - Simon Panrucker</button>
-        <button class="btn" id="btnB">🎁 这个圣诞节 - Dott</button>
-        <button class="btn" id="btnC">🌟 客栈没房间 - TRG Banks</button>
-        <button class="btn" id="btnD">🔔 摇摆铃儿响 - Mark Smeby</button>
-        <div class="separator">────── 或者 ──────</div>
-        <input type="file" id="upload" hidden accept="audio/mp3,audio/wav" />
-        <label for="upload">📁 上传本地音乐文件</label>
+        <!-- <div class="title">🎄 摇摆铃儿响</div> -->
+        <!-- 祝福文字会插入在按钮上方 -->
+        <button class="btn" id="startBtn">🎵 点击开始圣诞音乐派对</button>
     </div>
 
-    <!-- ✅ 现代CDN链接（Three.js r128+） -->
     <script type="importmap">
     {
         "imports": {
@@ -54,11 +78,50 @@
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-        import { CopyShader } from 'three/addons/shaders/CopyShader.js';
-        import { LuminosityHighPassShader } from 'three/addons/shaders/LuminosityHighPassShader.js';
 
-        // 核心逻辑代码（保持原功能，但使用现代Three.js API）
+        // 祝福轮换逻辑（每 2 秒切换）
+        const blessings = [
+            '但愿这个冬天 ⛄',
+            '爱与好运同在 💫',
+            '在无法预料的未来里 🌈',
+            '我们平平安安就好 🏠',
+            '露露圣诞快乐 🎄'
+        ];
+        let blessingIndex = 0;
+        let blessingInterval = null;
+
+        function startBlessings() {
+            const overlay = document.getElementById('overlay');
+            if (!overlay) return;
+            if (!document.getElementById('blessing')) {
+                const el = document.createElement('div');
+                el.id = 'blessing';
+                el.className = 'blessing';
+                el.textContent = blessings[0];
+                const startBtn = document.getElementById('startBtn');
+                overlay.insertBefore(el, startBtn);
+            }
+            if (blessingInterval) clearInterval(blessingInterval);
+            blessingInterval = setInterval(() => {
+                const el = document.getElementById('blessing');
+                if (!el) return;
+                el.style.opacity = '0';
+                setTimeout(() => {
+                    blessingIndex = (blessingIndex + 1) % blessings.length;
+                    el.textContent = blessings[blessingIndex];
+                    el.style.opacity = '1';
+                }, 350);
+            }, 2000);
+        }
+
+        function stopBlessings() {
+            if (blessingInterval) {
+                clearInterval(blessingInterval);
+                blessingInterval = null;
+            }
+        }
+
+        // 工具与常量
         const { PI, sin, cos } = Math;
         const TAU = 2 * PI;
         const map = (v, sMin, sMax, dMin, dMax) => dMin + (v - sMin) / (sMax - sMin) * (dMax - dMin);
@@ -68,6 +131,7 @@
         const randChoise = arr => arr[randInt(arr.length)];
         const polar = (ang, r = 1) => [r * cos(ang), r * sin(ang)];
 
+        // Three 相关
         let scene, camera, renderer, analyser, composer;
         let step = 0;
         const uniforms = { time: { value: 0.0 }, step: { value: 0.0 } };
@@ -76,15 +140,39 @@
         const listener = new THREE.AudioListener();
         const audio = new THREE.Audio(listener);
 
-        // 事件监听
-        document.getElementById("upload").addEventListener("change", uploadAudio);
-        document.querySelectorAll(".btn").forEach((btn, i) => 
-            btn.addEventListener("click", () => loadAudio(i))
-        );
+        // 点击开始事件：隐藏按钮并加载音乐与场景
+        document.getElementById("startBtn").addEventListener("click", () => {
+            const startBtn = document.getElementById("startBtn");
+            if (startBtn) startBtn.style.display = 'none';
+            loadAudio();
+        });
+
+        function showError(message) {
+            const overlay = document.getElementById("overlay");
+            overlay.innerHTML = `
+                <div class="title">❌ 加载失败</div>
+                <div class="error">${message}</div>
+                <button class="btn" onclick="location.reload()">🔄 重新尝试</button>
+            `;
+        }
 
         function init() {
-            document.getElementById("overlay")?.remove();
-            
+            // 进入 3D 时保留祝福为悬浮层（不移除 overlay）
+            const overlayEl = document.getElementById("overlay");
+            if (overlayEl) {
+                const startBtn = document.getElementById("startBtn");
+                if (startBtn) startBtn.style.display = 'none';
+                overlayEl.style.position = 'fixed';
+                overlayEl.style.top = '12px';
+                overlayEl.style.left = '50%';
+                overlayEl.style.transform = 'translateX(-50%)';
+                overlayEl.style.zIndex = '999';
+                overlayEl.style.pointerEvents = 'none';
+                // 如果祝福元素已存在，确保它可点击
+                const blessingEl = document.getElementById('blessing');
+                if (blessingEl) blessingEl.style.pointerEvents = 'auto';
+            }
+
             scene = new THREE.Scene();
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setPixelRatio(window.devicePixelRatio);
@@ -94,9 +182,16 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
             camera.position.set(-0.1, -2.6, 24.4);
 
-            uniforms.tAudioData = { 
-                value: new THREE.DataTexture(analyser.data, fftSize / 2, 1, THREE.RedFormat)
-            };
+            // 创建音频纹理（每帧更新 needsUpdate）
+            if (analyser && analyser.data) {
+                const tex = new THREE.DataTexture(analyser.data, fftSize / 2, 1, THREE.RedFormat);
+                tex.needsUpdate = true;
+                uniforms.tAudioData = { value: tex };
+            } else {
+                // 占位纹理
+                const empty = new Uint8Array(fftSize / 2);
+                uniforms.tAudioData = { value: new THREE.DataTexture(empty, fftSize / 2, 1, THREE.RedFormat) };
+            }
 
             addPlane(scene, uniforms, 3000);
             addSnow(scene, uniforms);
@@ -107,7 +202,7 @@
 
             composer = new EffectComposer(renderer);
             composer.addPass(new RenderPass(scene, camera));
-            
+
             const bloomPass = new UnrealBloomPass(
                 new THREE.Vector2(window.innerWidth, window.innerHeight),
                 0.9, 0.4, 0.5
@@ -116,53 +211,61 @@
 
             addListeners(camera, renderer, composer);
             animate();
+
+            // 在3D场景加载完成后启动祝福轮换
+            startBlessings();
         }
 
         function animate(time) {
-            analyser.getFrequencyData();
-            uniforms.tAudioData.value.needsUpdate = true;
+            requestAnimationFrame(animate);
+            if (analyser && uniforms.tAudioData && uniforms.tAudioData.value) {
+                analyser.getFrequencyData();
+                const tex = uniforms.tAudioData.value;
+                if (tex.image && tex.image.data) {
+                    // three DataTexture expects typed array, ensure copy
+                    tex.image.data.set(analyser.data);
+                    tex.needsUpdate = true;
+                }
+            }
             step = (step + 1) % 1000;
             uniforms.time.value = time;
             uniforms.step.value = step;
-            composer.render();
-            requestAnimationFrame(animate);
+            if (composer) composer.render();
+            else if (renderer && scene && camera) renderer.render(scene, camera);
         }
 
-        function loadAudio(i) {
-            document.getElementById("overlay").innerHTML = 
-                '<div class="text-loading">🎵 正在加载音乐...</div>';
-            const files = [
-                "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Simon_Panrucker/Happy_Christmas_You_Guys/Simon_Panrucker_-_01_-_Snowflakes_Falling_Down.mp3",
-                "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Dott/This_Christmas/Dott_-_01_-_This_Christmas.mp3",
-                "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/TRG_Banks/TRG_Banks_Christmas_Album/TRG_Banks_-_12_-_No_room_at_the_inn.mp3",
-                "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Mark_Smeby/En_attendant_Nol/Mark_Smeby_-_07_-_Jingle_Bell_Swing.mp3"
-            ];
-            
+        function loadAudio() {
+            // 【已移除】不再显示"正在加载音乐..."提示
+            // const overlay = document.getElementById("overlay");
+            // if (overlay) overlay.innerHTML = '<div class="text-loading">🎄 正在加载音乐...</div>';
+
+            // 备用音乐链接（可替换成本地或其他可访问链接）
+            const audioUrl = "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Mark_Smeby/En_attendant_Nol/Mark_Smeby_-_07_-_Jingle_Bell_Swing.mp3";
+
             const loader = new THREE.AudioLoader();
-            loader.load(files[i], buffer => {
-                audio.setBuffer(buffer);
-                audio.play();
-                analyser = new THREE.AudioAnalyser(audio, fftSize);
-                init();
-            });
-        }
-
-        function uploadAudio(event) {
-            document.getElementById("overlay").innerHTML = 
-                '<div class="text-loading">⏳ 处理中...</div>';
-            const reader = new FileReader();
-            reader.onload = e => {
-                listener.context.decodeAudioData(e.target.result, buffer => {
+            loader.load(
+                audioUrl,
+                buffer => {
                     audio.setBuffer(buffer);
+                    audio.setLoop(true);
+                    audio.setVolume(0.9);
                     audio.play();
                     analyser = new THREE.AudioAnalyser(audio, fftSize);
+                    // init 依赖 analyser 创建纹理
                     init();
-                });
-            };
-            reader.readAsArrayBuffer(event.target.files[0]);
+                },
+                progress => {
+                    // 可在控制台查看进度
+                    // console.log('加载进度:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                },
+                error => {
+                    console.error('音频加载失败:', error);
+                    showError('音乐文件加载失败，可能是网络问题或音乐链接已失效。请检查网络连接，或尝试使用可访问的音频地址。');
+                }
+            );
         }
 
-        // 保持原有的addTree、addSnow、addPlane函数实现（使用现代Three.js API）
+        // 三维元素创建函数：addTree / addSnow / addPlane
         function addTree(scene, uniforms, totalPoints, treePosition) {
             const vertexShader = `
                 attribute float mIndex; varying vec3 vColor; varying float opacity;
@@ -176,7 +279,7 @@
                     vColor = color;
                     vec3 p = position;
                     vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
-                    float amplitude = texture2D(tAudioData, vec2(mIndex, 0.1)).r;
+                    float amplitude = texture2D(tAudioData, vec2(mIndex, 0.0)).r;
                     float amplitudeClamped = clamp(amplitude - 0.4, 0.0, 0.6);
                     float sizeMapped = map(amplitudeClamped, 0.0, 0.6, 1.0, 20.0);
                     opacity = map(mvPosition.z, -200.0, 15.0, 0.0, 1.0);
@@ -191,7 +294,7 @@
                     gl_FragColor = vec4(vColor, opacity) * texture2D(pointTexture, gl_PointCoord);
                 }
             `;
-            
+
             const shaderMaterial = new THREE.ShaderMaterial({
                 uniforms: {
                     ...uniforms,
@@ -218,13 +321,13 @@
                 const ang = map(t, 0, 1, 0, 6 * TAU) + TAU / 2 * (i % 2);
                 const [z, x] = polar(ang, map(t, 0, 1, 5, 0));
                 const modifier = map(t, 0, 1, 1, 0);
-                
+
                 positions.push(
                     x + rand(-0.3 * modifier, 0.3 * modifier),
                     y + rand(-0.3 * modifier, 0.3 * modifier),
                     z + rand(-0.3 * modifier, 0.3 * modifier)
                 );
-                
+
                 color.setHSL(map(i, 0, totalPoints, 1.0, 0.0), 1.0, 0.5);
                 colors.push(color.r, color.g, color.b);
                 mIndexs.push(map(i, 0, totalPoints, 1.0, 0.0));
@@ -261,7 +364,6 @@
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `;
-            
             const fragmentShader = `
                 varying vec3 vColor; varying float opacity;
                 uniform sampler2D pointTexture;
@@ -332,7 +434,6 @@
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `;
-            
             const fragmentShader = `
                 varying vec3 vColor;
                 uniform sampler2D pointTexture;
@@ -384,7 +485,7 @@
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
-                composer.setSize(window.innerWidth, window.innerHeight);
+                if (composer && composer.setSize) composer.setSize(window.innerWidth, window.innerHeight);
             });
         }
     </script>

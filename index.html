@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>露露圣诞快乐</title>
     <style>
         * { box-sizing: border-box; }
@@ -38,30 +41,55 @@
         .error {
             color: #ff6b6b; font-size: 1rem; max-width: 400px; padding: 10px;
         }
-
-        /* 修改祝福样式 - 字体变大 */
         .blessing {
-            font-size: 2rem; /* 从 1.25rem 增大到 2rem */
+            font-size: 2rem;
             color: #ffd9b5;
             min-height: 30px;
             line-height: 30px;
             transition: opacity 0.35s;
             opacity: 1;
             user-select: none;
+            text-shadow: 0 0 10px rgba(255, 217, 181, 0.5);
         }
-
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
             100% { opacity: 0.6; }
         }
+        
+        /* 横屏提示 */
+        #orientationHint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(22, 22, 22, 0.95);
+            color: #ffd9b5;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #c5a880;
+            text-align: center;
+            z-index: 10000;
+            display: none;
+            font-size: 1.2rem;
+        }
+        
+        @media (max-width: 768px) and (orientation: landscape) {
+            .blessing { font-size: 1.8rem; }
+            .title { font-size: 1.5rem; }
+            #orientationHint { display: none !important; }
+        }
     </style>
 </head>
 <body>
     <div id="overlay">
-        <!-- <div class="title">🎄 摇摆铃儿响</div> -->
-        <!-- 祝福文字会插入在按钮上方 -->
         <button class="btn" id="startBtn">🎵 点击开始圣诞音乐派对</button>
+    </div>
+    
+    <!-- 横屏提示 -->
+    <div id="orientationHint">
+        <div>📱 请将手机旋转至横屏</div>
+        <div style="font-size: 1rem; margin-top: 10px;">以获得最佳视觉效果</div>
     </div>
 
     <script type="importmap">
@@ -79,14 +107,24 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // 祝福轮换逻辑（每 2 秒切换）
-        const blessings = [
-            '但愿这个冬天 ⛄',
-            '爱与好运同在 💫',
-            '在无法预料的未来里 🌈',
-            '我们平平安安就好 🏠',
-            '露露圣诞快乐 🎄'
-        ];
+        // 横屏检测
+        function checkOrientation() {
+            const hint = document.getElementById('orientationHint');
+            const isMobile = window.innerWidth <= 768;
+            const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+            
+            if (isMobile && !isLandscape) {
+                hint.style.display = 'block';
+            } else {
+                hint.style.display = 'none';
+            }
+        }
+        
+        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation(); // 初始检查
+
+        const blessings = ['但愿这个冬天 ⛄','爱与好运同在 💫','在无法预料的未来里 🌈','我们平平安安就好 🏠','露露圣诞快乐 🎄'];
         let blessingIndex = 0;
         let blessingInterval = null;
 
@@ -121,7 +159,6 @@
             }
         }
 
-        // 工具与常量
         const { PI, sin, cos } = Math;
         const TAU = 2 * PI;
         const map = (v, sMin, sMax, dMin, dMax) => dMin + (v - sMin) / (sMax - sMin) * (dMax - dMin);
@@ -131,7 +168,6 @@
         const randChoise = arr => arr[randInt(arr.length)];
         const polar = (ang, r = 1) => [r * cos(ang), r * sin(ang)];
 
-        // Three 相关
         let scene, camera, renderer, analyser, composer;
         let step = 0;
         const uniforms = { time: { value: 0.0 }, step: { value: 0.0 } };
@@ -140,7 +176,6 @@
         const listener = new THREE.AudioListener();
         const audio = new THREE.Audio(listener);
 
-        // 点击开始事件：隐藏按钮并加载音乐与场景
         document.getElementById("startBtn").addEventListener("click", () => {
             const startBtn = document.getElementById("startBtn");
             if (startBtn) startBtn.style.display = 'none';
@@ -157,7 +192,6 @@
         }
 
         function init() {
-            // 进入 3D 时保留祝福为悬浮层（不移除 overlay）
             const overlayEl = document.getElementById("overlay");
             if (overlayEl) {
                 const startBtn = document.getElementById("startBtn");
@@ -168,7 +202,6 @@
                 overlayEl.style.transform = 'translateX(-50%)';
                 overlayEl.style.zIndex = '999';
                 overlayEl.style.pointerEvents = 'none';
-                // 如果祝福元素已存在，确保它可点击
                 const blessingEl = document.getElementById('blessing');
                 if (blessingEl) blessingEl.style.pointerEvents = 'auto';
             }
@@ -182,13 +215,11 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
             camera.position.set(-0.1, -2.6, 24.4);
 
-            // 创建音频纹理（每帧更新 needsUpdate）
             if (analyser && analyser.data) {
                 const tex = new THREE.DataTexture(analyser.data, fftSize / 2, 1, THREE.RedFormat);
                 tex.needsUpdate = true;
                 uniforms.tAudioData = { value: tex };
             } else {
-                // 占位纹理
                 const empty = new Uint8Array(fftSize / 2);
                 uniforms.tAudioData = { value: new THREE.DataTexture(empty, fftSize / 2, 1, THREE.RedFormat) };
             }
@@ -205,14 +236,12 @@
 
             const bloomPass = new UnrealBloomPass(
                 new THREE.Vector2(window.innerWidth, window.innerHeight),
-                0.9, 0.4, 0.5
+                1.8, 0.6, 0.5
             );
             composer.addPass(bloomPass);
 
             addListeners(camera, renderer, composer);
             animate();
-
-            // 在3D场景加载完成后启动祝福轮换
             startBlessings();
         }
 
@@ -222,7 +251,6 @@
                 analyser.getFrequencyData();
                 const tex = uniforms.tAudioData.value;
                 if (tex.image && tex.image.data) {
-                    // three DataTexture expects typed array, ensure copy
                     tex.image.data.set(analyser.data);
                     tex.needsUpdate = true;
                 }
@@ -235,13 +263,7 @@
         }
 
         function loadAudio() {
-            // 【已移除】不再显示"正在加载音乐..."提示
-            // const overlay = document.getElementById("overlay");
-            // if (overlay) overlay.innerHTML = '<div class="text-loading">🎄 正在加载音乐...</div>';
-
-            // 备用音乐链接（可替换成本地或其他可访问链接）
             const audioUrl = "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Mark_Smeby/En_attendant_Nol/Mark_Smeby_-_07_-_Jingle_Bell_Swing.mp3";
-
             const loader = new THREE.AudioLoader();
             loader.load(
                 audioUrl,
@@ -251,13 +273,9 @@
                     audio.setVolume(0.9);
                     audio.play();
                     analyser = new THREE.AudioAnalyser(audio, fftSize);
-                    // init 依赖 analyser 创建纹理
                     init();
                 },
-                progress => {
-                    // 可在控制台查看进度
-                    // console.log('加载进度:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
-                },
+                progress => {},
                 error => {
                     console.error('音频加载失败:', error);
                     showError('音乐文件加载失败，可能是网络问题或音乐链接已失效。请检查网络连接，或尝试使用可访问的音频地址。');
@@ -265,7 +283,6 @@
             );
         }
 
-        // 三维元素创建函数：addTree / addSnow / addPlane
         function addTree(scene, uniforms, totalPoints, treePosition) {
             const vertexShader = `
                 attribute float mIndex; varying vec3 vColor; varying float opacity;
@@ -290,8 +307,12 @@
             const fragmentShader = `
                 varying vec3 vColor; varying float opacity;
                 uniform sampler2D pointTexture;
+                uniform float time;
                 void main() {
-                    gl_FragColor = vec4(vColor, opacity) * texture2D(pointTexture, gl_PointCoord);
+                    vec4 color = vec4(vColor, opacity) * texture2D(pointTexture, gl_PointCoord);
+                    float flicker = 1.0 + 0.6 * sin(time * 0.01 + gl_FragCoord.x * 0.05);
+                    color.rgb *= (1.5 + flicker);
+                    gl_FragColor = color;
                 }
             `;
 
@@ -328,7 +349,8 @@
                     z + rand(-0.3 * modifier, 0.3 * modifier)
                 );
 
-                color.setHSL(map(i, 0, totalPoints, 1.0, 0.0), 1.0, 0.5);
+                const hue = map(i, 0, totalPoints, 0.3, 0.0);
+                color.setHSL(hue, 1.0, 0.6);
                 colors.push(color.r, color.g, color.b);
                 mIndexs.push(map(i, 0, totalPoints, 1.0, 0.0));
             }
@@ -486,6 +508,7 @@
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 if (composer && composer.setSize) composer.setSize(window.innerWidth, window.innerHeight);
+                checkOrientation(); // 检测方向变化
             });
         }
     </script>
